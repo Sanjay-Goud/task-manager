@@ -28,15 +28,13 @@ public class TaskController {
     @Autowired
     private UserService userService;
 
-    // @ModelAttribute("_csrf")
-    // public CsrfToken csrfToken(HttpServletRequest request) {
-    //     // Spring Security auto‑populates this request attribute
-    //     return (CsrfToken) request.getAttribute(CsrfToken.class.getName());
-    // }
-
-   
-
-
+    @GetMapping("/tasks/{id}")
+    public String viewTask(@PathVariable Long id, Model model) {
+        Task task = taskService.getTaskById(id)
+                .orElseThrow(() -> new RuntimeException("Task not found with ID: " + id));
+        model.addAttribute("task", task);
+        return "task-view";
+    }
 
     @ModelAttribute
     public void addCsrfToken(CsrfToken token, Model model) {
@@ -50,71 +48,66 @@ public class TaskController {
 
     // Dashboard showing tasks
     @GetMapping("/dashboard")
-public String dashboard(Model model, Authentication auth,
-                        @RequestParam(required = false) String filter) {
+    public String dashboard(Model model, Authentication auth,
+            @RequestParam(required = false) String filter) {
 
-    User user = getLoggedInUser(auth);
-    if (user == null) return "redirect:/login";
+        User user = getLoggedInUser(auth);
+        if (user == null)
+            return "redirect:/login";
 
-    List<Task> tasks;
-    if ("completed".equals(filter)) {
-        tasks = taskService.getTasksByUserAndStatus(user, TaskStatus.COMPLETED);
-    } else if ("pending".equals(filter)) {
-        tasks = taskService.getTasksByUserAndStatus(user, TaskStatus.PENDING);
-    } else {
-        tasks = taskService.getAllTasksByUser(user);
+        List<Task> tasks;
+        if ("completed".equals(filter)) {
+            tasks = taskService.getTasksByUserAndStatus(user, TaskStatus.COMPLETED);
+        } else if ("pending".equals(filter)) {
+            tasks = taskService.getTasksByUserAndStatus(user, TaskStatus.PENDING);
+        } else {
+            tasks = taskService.getAllTasksByUser(user);
+        }
+
+        List<Task> upcomingTasks = taskService.getUpcomingTasks(user);
+
+        // ➕ Calculate task stats
+        long totalTasks = taskService.getAllTasksByUser(user).size();
+        long completedTasks = taskService.getTasksByUserAndStatus(user, TaskStatus.COMPLETED).size();
+        long pendingTasks = taskService.getTasksByUserAndStatus(user, TaskStatus.PENDING).size();
+        long upcomingCount = upcomingTasks.size();
+
+        model.addAttribute("tasks", tasks);
+        model.addAttribute("upcomingTasks", upcomingTasks);
+        model.addAttribute("totalTasks", totalTasks);
+        model.addAttribute("completedTasks", completedTasks);
+        model.addAttribute("pendingTasks", pendingTasks);
+        model.addAttribute("upcomingTasks", upcomingCount);
+        model.addAttribute("currentFilter", filter);
+        model.addAttribute("user", user);
+
+        return "dashboard";
     }
 
-    List<Task> upcomingTasks = taskService.getUpcomingTasks(user);
-
-    // ➕ Calculate task stats
-    long totalTasks = taskService.getAllTasksByUser(user).size();
-    long completedTasks = taskService.getTasksByUserAndStatus(user, TaskStatus.COMPLETED).size();
-    long pendingTasks = taskService.getTasksByUserAndStatus(user, TaskStatus.PENDING).size();
-    long upcomingCount = upcomingTasks.size();
-
-    model.addAttribute("tasks", tasks);
-    model.addAttribute("upcomingTasks", upcomingTasks);
-    model.addAttribute("totalTasks", totalTasks);
-    model.addAttribute("completedTasks", completedTasks);
-    model.addAttribute("pendingTasks", pendingTasks);
-    model.addAttribute("upcomingTasks", upcomingCount);
-    model.addAttribute("currentFilter", filter);
-    model.addAttribute("user", user);
-
-    return "dashboard";
-}
-
-
-    // Show new task form
-    // @GetMapping("/tasks/new")
-    // public String newTask(Model model) {
-    //     model.addAttribute("task", new Task());
-    //     return "task-form";
-    // }
 
     @GetMapping("/tasks/new")
-public String newTask(Model model, Authentication auth) {
-    // add this line:
-    User user = getLoggedInUser(auth);
-    model.addAttribute("user", user);
+    public String newTask(Model model, Authentication auth) {
+        // add this line:
+        User user = getLoggedInUser(auth);
+        model.addAttribute("user", user);
 
-    model.addAttribute("task", new Task());
-    return "task-form";
-}
+        model.addAttribute("task", new Task());
+        return "task-form";
+    }
 
     // Handle new task creation
     @PostMapping("/tasks")
     public String createTask(@Valid @ModelAttribute("task") Task task,
-                             BindingResult result,
-                             Authentication auth) {
+            BindingResult result,
+            Authentication auth) {
 
         if (result.hasErrors()) {
             return "task-form";
         }
 
         User user = getLoggedInUser(auth);
-        if (user == null) return "redirect:/login";
+        if (user == null)
+            return "redirect:/login";
 
         task.setUser(user);
         taskService.createTask(task);
@@ -122,44 +115,29 @@ public String newTask(Model model, Authentication auth) {
         return "redirect:/dashboard";
     }
 
-    // Show edit form
-    // @GetMapping("/tasks/{id}/edit")
-    // public String editTask(@PathVariable Long id, Model model, Authentication auth) {
-    //     Optional<Task> taskOpt = taskService.getTaskById(id);
-    //     User user = getLoggedInUser(auth);
-
-    //     if (taskOpt.isPresent() && user != null) {
-    //         Task task = taskOpt.get();
-    //         if (task.getUser().getId().equals(user.getId())) {
-    //             model.addAttribute("task", task);
-    //             return "task-form";
-    //         }
-    //     }
-    //     return "redirect:/dashboard";
-    // }
-
+ 
     @GetMapping("/tasks/{id}/edit")
-public String editTask(@PathVariable Long id, Model model, Authentication auth) {
-    User user = getLoggedInUser(auth);
-    model.addAttribute("user", user);
+    public String editTask(@PathVariable Long id, Model model, Authentication auth) {
+        User user = getLoggedInUser(auth);
+        model.addAttribute("user", user);
 
-    Optional<Task> taskOpt = taskService.getTaskById(id);
-    if (taskOpt.isPresent() && user != null) {
-        Task task = taskOpt.get();
-        if (task.getUser().getId().equals(user.getId())) {
-            model.addAttribute("task", task);
-            return "task-form";
+        Optional<Task> taskOpt = taskService.getTaskById(id);
+        if (taskOpt.isPresent() && user != null) {
+            Task task = taskOpt.get();
+            if (task.getUser().getId().equals(user.getId())) {
+                model.addAttribute("task", task);
+                return "task-form";
+            }
         }
+        return "redirect:/dashboard";
     }
-    return "redirect:/dashboard";
-}
 
     // Handle task update
     @PostMapping("/tasks/{id}")
     public String updateTask(@PathVariable Long id,
-                             @Valid @ModelAttribute("task") Task task,
-                             BindingResult result,
-                             Authentication auth) {
+            @Valid @ModelAttribute("task") Task task,
+            BindingResult result,
+            Authentication auth) {
 
         if (result.hasErrors()) {
             return "task-form";
@@ -205,8 +183,7 @@ public String editTask(@PathVariable Long id, Model model, Authentication auth) 
         if (taskOpt.isPresent() && user != null) {
             Task task = taskOpt.get();
             if (task.getUser().getId().equals(user.getId())) {
-                task.setStatus(task.getStatus() == TaskStatus.PENDING ?
-                               TaskStatus.COMPLETED : TaskStatus.PENDING);
+                task.setStatus(task.getStatus() == TaskStatus.PENDING ? TaskStatus.COMPLETED : TaskStatus.PENDING);
                 taskService.updateTask(task);
             }
         }
