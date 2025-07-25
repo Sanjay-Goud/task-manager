@@ -49,7 +49,7 @@
             </div>
 
             <!-- <form id="taskForm" method="post" enctype="multipart/form-data"> -->
-            <form th:action="@{/tasks}" method="post" th:object="${task}" enctype="multipart/form-data">
+            <form id="taskForm" th:action="@{/tasks}" method="post" th:object="${task}" enctype="multipart/form-data">
                 
                 <!-- CSRF Token -->
                 <!-- <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" /> -->
@@ -237,14 +237,6 @@
         let isEditing = false;
         let taskId = null;
 
-        // Initialize form
-        document.addEventListener('DOMContentLoaded', function () {
-            setupEventListeners();
-            setupValidation();
-            setupAutoSave();
-            checkEditMode();
-            setMinDate();
-        });
 
         // Check if we're in edit mode
         function checkEditMode() {
@@ -326,7 +318,11 @@
             });
 
             // Date validation
-            document.getElementById('dueDate').addEventListener('change', validateDate);
+            const dueDate = document.getElementById('dueDate');
+if (dueDate) {
+    dueDate.addEventListener('change', validateDate);
+}
+
         }
 
         // Setup form validation
@@ -394,7 +390,7 @@
 
         // Handle form submission
         function handleSubmit(e) {
-            e.preventDefault();
+            // e.preventDefault();
 
             if (!validateForm()) {
                 showAlert('Please correct the errors below', 'error');
@@ -423,23 +419,24 @@
         }
 
         // Collect form data
-        function collectFormData() {
-            const formData = {
-                title: document.getElementById('title').value,
-                description: document.getElementById('description').value,
-                category: document.getElementById('category').value,
-                priority: document.querySelector('input[name="priority"]:checked')?.value,
-                status: document.getElementById('status').value,
-                dueDate: document.getElementById('dueDate').value,
-                dueTime: document.getElementById('dueTime').value,
-                estimatedHours: document.getElementById('estimatedHours').value,
-                isImportant: document.getElementById('isImportant').checked,
-                tags: tags,
-                attachments: attachments
-            };
+       function collectFormData() {
+    const formData = {
+        title: document.getElementById('title')?.value || '',
+        description: document.getElementById('description')?.value || '',
+        category: document.getElementById('category')?.value || '',
+        priority: document.querySelector('input[name="priority"]:checked')?.value || '',
+        status: document.getElementById('status')?.value || '',
+        dueDate: document.getElementById('deadline')?.value || '', // ✅ correct id
+        dueTime: '', // ⛔ not present, so leave blank or remove if unused
+        estimatedHours: document.getElementById('estimatedHours')?.value || '',
+        isImportant: document.getElementById('isImportant')?.checked || false,
+        tags: typeof tags !== 'undefined' ? tags : [], // ✅ make sure `tags` is globally defined
+        attachments: typeof attachments !== 'undefined' ? attachments : [] // ✅ make sure this too is defined
+    };
 
-            return formData;
-        }
+    return formData;
+}
+
 
         // Form validation
         function validateForm() {
@@ -860,8 +857,13 @@
 
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', function () {
-            showAlert('Form loaded successfully. Use Ctrl+S to save or Ctrl+P to preview.', 'info');
-        });
+    setupEventListeners();
+    setupValidation();
+    setupAutoSave();
+    checkEditMode();
+    setMinDate();
+    showAlert('Form loaded successfully. Use Ctrl+S to save or Ctrl+P to preview.', 'info');
+});                           
 </script>
 </body>
 </html>
